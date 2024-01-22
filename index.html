@@ -1,0 +1,761 @@
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Apostle Islands Wildlife Spotter App</title>
+  <style>
+    html,
+    body,
+      
+#heading {
+      padding: 0;
+      margin: 0;
+      height: 100%;
+      width: 100%;
+      color: "#5F9EA0";
+    }
+
+    .header {
+      text-align: left;
+      background: #5F9EA0;
+      color: white; /* Set text color to white */
+      font-family: "Avenir Next", sans-serif; /* Use Gill Sans font */
+      height: 10%;
+      display: flex;
+      align-items: center;
+      font-size: 24pt;
+    }
+      
+
+      #optionsDiv {
+        background-color: cadetblue;
+        color: white;
+        padding: 10px;
+        width: 350px;
+      }
+      
+    #optionsDiv2 {
+/*      background-color: cadetblue;*/
+      color: white;
+      padding: 10px;
+/*      width: 300px;*/
+      position: absolute;
+/*      top: calc(100% - 820px);  Adjust this value as needed */
+      right: 10px;
+      z-index: 1000; /* Ensure it appears above other elements */
+    }
+      
+    #viewDiv {
+      padding: 0;
+      margin: 0;
+      height: 90%;
+      width: 100%;
+    }
+      
+    #basemapStyles {
+      width: 250px;
+      padding: 10px;
+    }
+      
+        /* Add styles for the minimizable widget */
+    .widget {
+      background: white;
+      border: 1px solid #ccc;
+      margin: 10px;
+      padding: 10px;
+    }
+
+    /* Add styles for the minimize button */
+    #toggleButton {
+      background: #5F9EA0;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+      
+    #resetButton {
+    position: absolute;
+    bottom: 25px;
+    right: 10px;
+    padding: 10px;
+    background-color: cadetblue;
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+  }
+/*
+    #bufferButton {
+    position: absolute;
+    bottom: 25px;
+    right: 10px;
+    padding: 10px;
+    background-color: cadetblue;
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+  }
+*/
+      
+.popup-content {
+  padding: 10px;
+  width: 500px;
+  background-color: white;
+  color: cadetblue;
+}
+      
+
+      
+  </style>
+
+<link rel="stylesheet" href="https://js.arcgis.com/4.28/esri/themes/light/main.css">
+<script src="https://js.arcgis.com/4.28/"></script>
+<script type="module" src="https://js.arcgis.com/map-components/4.28/arcgis-map-components.esm.js"></script>
+<!--<script type="module" src="https://js.arcgis.com/4.28/esri/widgets/LayerList.js"></script>-->
+
+
+<!--    // calcite basemap change -->
+<script type="module" src="https://js.arcgis.com/calcite-components/1.9.2/calcite.esm.js"></script>
+<link rel="stylesheet" type="text/css" href="https://js.arcgis.com/calcite-components/1.9.2/calcite.css" />
+    
+    
+
+  <script>
+    require([
+          "esri/config",
+          "esri/Map",
+          "esri/views/MapView",
+          "esri/widgets/ScaleBar",
+//          "esri/widgets/Legend",
+          "esri/layers/FeatureLayer",
+          "esri/widgets/Editor",
+          "esri/symbols/PictureMarkerSymbol",
+          "esri/symbols/SimpleMarkerSymbol",
+          "esri/Color",
+          "esri/widgets/Locate",
+          "esri/widgets/Track",
+          "esri/Graphic",
+          "esri/widgets/LayerList",
+          "esri/widgets/Expand",
+          "esri/widgets/Compass",
+          "esri/rest/query",
+          "esri/rest/support/Query",
+          "esri/geometry/geometryEngine",
+          "esri/widgets/Search",
+          "esri/symbols/SimpleLineSymbol"
+         
+        ], function(
+            esriConfig,
+            Map,
+            MapView,
+            ScaleBar,
+//            Legend,
+            FeatureLayer,
+            Editor,
+            PictureMarkerSymbol,
+            SimpleMarkerSymbol,
+            Color,
+            Locate,
+            Track,
+            Graphic,
+            LayerList,
+            Expand,
+            Compass,
+            query,
+            Query,
+            geometryEngine,
+            Search,
+            SimpleLineSymbol
+
+        ) {  
+        
+    // wildlife layer 
+        const popupWildlife = {
+        "title": "Animal Sighting",
+        "content": "{Wildlife} spotted by a {Spotter}"
+      }
+        
+        const popupLighthouses = {
+        "title": "Lighthouse",
+        "content": "{NAME1_}"
+      }
+        
+    const npsLighthouses = new FeatureLayer({
+    url: "https://services.arcgis.com/HRPe58bUyBqyyiCt/arcgis/rest/services/AI_lighthouse/FeatureServer",
+          outFields: ["Name1_"],
+          popupTemplate: popupLighthouses,
+          title: "Lighthouses"
+  });
+      
+        
+        
+      const wildlifeLayer = new FeatureLayer({
+    url: "https://services.arcgis.com/HRPe58bUyBqyyiCt/arcgis/rest/services/Wildlife3___Wildlife2_32_csv/FeatureServer",
+        outFields: ["Wildlife", "Spotter"],
+        popupTemplate: popupWildlife,
+        title: "Wildlife Reports"
+  });
+        
+const parkSymbol = new SimpleLineSymbol({
+  color: 'cadetblue', // Red color (you can adjust this)
+  width: .5, // Adjust the line width as needed
+  style: "dash-dot" // Set the line style to "dash" for a dotted line
+});
+
+const parkLayer = new FeatureLayer({
+  url: "https://services.arcgis.com/HRPe58bUyBqyyiCt/arcgis/rest/services/AI_Park_Boundaries/FeatureServer",
+  title: "Apostle Islands National Lakeshore Park Boundaries",
+  renderer: {
+    type: "simple",
+    symbol: parkSymbol
+  }
+});
+
+      esriConfig.apiKey = "AAPKbcf525b00e1e4eac82fca480b9d8374729QcC3lrwvJGTpiz_f89fDf-Gl2d-h0gOF7SvNiXQeIXUw62g_0ZuQ4fddlLkntw";
+      const map = new Map({
+        basemap: "arcgis-charted-territory", // Basemap layer
+//        layers: [npsLighthouses]
+      });
+        
+
+
+
+    
+      const view = new MapView({
+        map: map,
+        center: [-90.6922219, 46.872107],
+        zoom: 10.75, // scale: 72223.819286
+        container: "viewDiv",
+        constraints: {
+          snapToZoom: false
+        }
+      });
+ 
+
+//        
+//// SQL query array
+//      const wildlifeLayerSQL = ["Choose an animal...", "Wildlife = 'American Beaver'", "Wildlife = 'American Black Bear'", "Wildlife = 'American Marten'", "Wildlife = 'Bald Eagle'", "Wildlife = 'Black-capped Chickadee'", "Wildlife = 'Blanding's Turtle'", "Wildlife = 'Common Loon'", "Wildlife = 'Eastern Bluebird'", "Wildlife = 'Eastern Box Turtle'", "Wildlife = 'Eastern Massasauga Rattlesnake'", "Wildlife = 'Eastern Red-backed Salamander'", "Wildlife = 'Eastern Timber Wolf'", "Wildlife = 'Gray Wolf'", "Wildlife = 'Great Horned Owl'", "Wildlife = 'Herring Gull'", "Wildlife = 'Lake Sturgeon'", "Wildlife = 'Northern Goshawk'","Wildlife = 'Osprey'", "Wildlife = 'Peregrine Falcon'", "Wildlife = 'Riverine Clubtail Dragonfly'", "Wildlife = 'Sandhill Crane'", "Wildlife = 'White-tailed Deer'"];
+//      let whereClause = wildlifeLayerSQL[0];
+//        
+//// Add SQL UI
+//      const select = document.createElement("select");
+//      select.setAttribute("class", "esri-widget esri-select");
+//      select.setAttribute("style", "width: 200px; font-family: 'Avenir Next'; font-size: 1em");
+//      wildlifeLayerSQL.forEach(function(query){
+//        let option = document.createElement("option");
+//        option.innerHTML = query;
+//        option.value = query;
+//        select.appendChild(option);
+//      });
+//     view.ui.add(select, "top-right");  
+//// Listen for changes - SQL
+//    select.addEventListener('change', (event) => {
+//        whereClause = event.target.value;
+//        queryFeatureLayer(view.extent);
+//
+//      });
+
+
+        
+const wildlifeDropdown = document.getElementById("wildlifeDropdown");
+
+    wildlifeDropdown.addEventListener('change', (event) => {
+      whereClause = event.target.value;
+      queryFeatureLayer(view.extent);
+    });
+        
+    // Add the expand instance to the ui
+    view.ui.add(wildlifeDropdown, "top-right");
+
+
+    // Editor widget
+    const editor = new Editor({
+      view: view,
+      container: document.createElement("div"),
+      layerInfos: [{
+        layer: wildlifeLayer,
+        fieldConfig: [{
+          name: 'Wildlife',
+          label: 'Wildlife Type'
+        }]
+      }]
+    });
+
+    // Create an Expand instance and set the content property to the Editor widget
+    const editorExpand = new Expand({
+      view: view,
+      content: editor,
+    });
+
+    // Add the expand instance to the ui
+    view.ui.add(editorExpand, "top-right");
+
+        
+
+        
+        
+//        basemap layers code 
+        const updateBasemapStyle = (basemapId) => {
+        view.map.basemap = basemapId;
+      };
+
+      const basemapStylesDiv = document.getElementById("basemapStyles");
+      view.ui.add(basemapStylesDiv, "bottom-left");
+        
+      const styleCombobox = document.getElementById("styleCombobox");
+      styleCombobox.addEventListener("calciteComboboxChange", (event) => {
+        updateBasemapStyle(event.target.value);
+      });
+
+ // info window
+    const popupContent = `
+  <div class= "popup-content">
+    <h3>Welcome to the Apostle Islands Wildlife Spotter App!</h3>
+    <p>This app was designed to provide you, the user, with an interactive map-based experience focused on wildlife spotting in and around the Apostle Islands National Lakeshore. You are invited to view (through the 'Choose an animal...' dropdown), record wildlife sightings (through the pencil icon editor) and explore various layers, including campgrounds, lighthouses, walking trails, and more. The app also provides additional information about specific points of interest, such as campgrounds and historic places, through interactive pop-up windows. 
+      <br><br>
+      Happy Exploring!</p>
+  </div>
+`;
+        
+const popupExpand = new Expand({
+  expandIconClass: "esri-icon-description", // You can use a different icon if needed
+  view: view,
+  content: popupContent,
+  expanded: false // Set to true if you want the pop-up to be expanded by default
+});
+
+view.ui.add(popupExpand, "top-left");
+
+        
+           
+        
+// Compass
+
+let compass = new Compass({
+  view: view
+});
+
+// Add the compass to the top left corner of the MapView
+view.ui.add(compass, "top-left");
+        
+
+
+
+// Get the reset button element
+const resetButton = document.getElementById("resetButton");
+
+// Reset button click event handler
+resetButton.addEventListener('click', () => {
+  // Reset the map to its initial state
+ location.reload();
+
+  // Clear the selected count div
+  const selectedCountDiv = document.getElementById("selectedCount");
+  selectedCountDiv.textContent = "";
+});
+
+
+
+       
+
+        
+// popups!!!!!!!!!!!!!!!!!
+        
+      
+        const popupTrail = {
+        "title": "National Park Service Trail",
+        "content": "Name: {MAPLABEL}"
+      }
+        
+        const popupHistoric = {
+        "title": "National Register of Historic Places",
+        "content": "Name: {RESNAME} <br> Type: {ResType}"
+      }
+        
+        const popupAmerIndian = {
+        "title": "American Indian Reservation",
+    "content": "Name: {NAME1_} <br> Website: <a href={NAME2_} target=_blank>{NAME2_}</a>"
+      }
+        
+        const popupCamp = {
+        "title": "Campground",
+        "content": "Name: {NAME1_}"
+      }
+        
+  // add layers here -------------------------------
+             //national register of historic places feature layer (points)
+  const npsCamp = new FeatureLayer({
+    url: "https://services.arcgis.com/HRPe58bUyBqyyiCt/arcgis/rest/services/AI_campground3/FeatureServer",
+        outFields: ["NAME1_"],
+        popupTemplate: popupCamp,
+        title: "Campsites"
+  });
+     
+        
+          //national register of historic places feature layer (points)
+  const laHistoricLayer = new FeatureLayer({
+    url: "https://services2.arcgis.com/FiaPA4ga0iQKduv3/arcgis/rest/services/nrhp_points_v1/FeatureServer",
+        outFields: ["RESNAME", "ResType"],
+        popupTemplate: popupHistoric,
+        title: "Historic Places"
+  });
+
+        
+
+        
+        
+        //Trails feature layer (lines)
+  const npsTrailsLayer = new FeatureLayer({
+    url: "https://mapservices.nps.gov/arcgis/rest/services/NationalDatasets/NPS_Public_Trails_Geographic/FeatureServer",
+        outFields: ["MAPLABEL"],
+        popupTemplate: popupTrail,
+        title: "Walking Trails"
+  });
+
+        
+  //Wildlife feature layer (points) - moved above api key
+   map.add(wildlifeLayer, 0);
+   map.add(npsCamp, 0);
+   map.add(laHistoricLayer, 0);
+   map.add(npsLighthouses, 0);
+   map.add(npsTrailsLayer, 0);
+   map.add(parkLayer, 0);
+
+        //SQL query stuff
+        function queryFeatureLayer(extent) {
+
+        const wildlifeQuery = {
+         where: whereClause,  // Set by select element
+         spatialRelationship: "intersects", // Relationship operation to apply
+         geometry: extent, // Restricted to visible extent of the map
+         outFields: ["Wildlife", "Spotter"], // Attributes to return
+         returnGeometry: true
+        };
+            wildlifeLayer.queryFeatures(wildlifeQuery)
+
+        .then((results) => {
+          console.log("Feature count: " + results.features.length)
+          displayResults(results);
+
+        });
+            
+      }
+        
+function displayResults(results) {
+  // Create a blue marker
+  const symbol = {
+    type: "simple-marker",
+    style: "circle",
+    color: "blue",
+    size: "12px",  // pixels
+    outline: {
+      color: "white",
+      width: 0.5
+    },
+  };
+
+  const popupTemplate = {
+    title: "Animal Sighting",
+    content: "Type: {Wildlife}"
+  };
+
+  // Clear display
+  view.closePopup();
+  view.graphics.removeAll();
+
+  // Add features to graphics layer with popup template
+  view.graphics.addMany(results.features.map(feature => {
+    feature.symbol = symbol;
+    feature.popupTemplate = popupTemplate;
+    return feature;
+  }));
+    
+const selectedCountDiv = document.getElementById("selectedCount");
+  selectedCountDiv.textContent = `Selected items count: ${results.features.length}`;
+}
+
+
+        
+// //American Indian Territory
+//   const datagovAmerIndian = new FeatureLayer({
+//    url: "https://services.arcgis.com/HRPe58bUyBqyyiCt/arcgis/rest/services/AI_res2/FeatureServer",
+//        outFields: ["NAME"],
+//        popupTemplate: popupAmerIndian
+//  });
+//   map.add(datagovAmerIndian, 0);     
+// SYMBOLS -------------------------------------------------------------------        
+   // Lighthouse Diamonds
+const lighthouseMarkerSymbol = new SimpleMarkerSymbol({
+  color: new Color([255, 165, 0]), //
+  outline: {
+    color: new Color([255, 255, 255]), // White outline (RGB)
+    width: 1 // Outline width
+  },
+  style: "diamond", // Set the symbol style to "diamond"
+  size: 12 // Set the size of the diamond symbol
+});    
+        
+// Update the renderer 
+npsLighthouses.renderer = {
+  type: "simple", // Use a simple renderer
+  symbol: lighthouseMarkerSymbol // Assign the new marker symbol
+};
+        
+   // Campground Triangles
+const campMarkerSymbol = new SimpleMarkerSymbol({
+  color: new Color([112, 77, 75]), // 
+  outline: {
+    color: new Color([255, 255, 255]), // White outline (RGB)
+    width: 1 // Outline width
+  },
+  style: "triangle", // Set the symbol style to "triangle"
+  size: 9 // Set the size of the diamond symbol
+});    
+        
+// Update the renderer for the npsCamp layer
+npsCamp.renderer = {
+  type: "simple", // Use a simple renderer
+  symbol: campMarkerSymbol // Assign the new marker symbol
+};
+        
+    // Historic Sites Squares
+const histMarkerSymbol = new SimpleMarkerSymbol({
+  color: new Color([81, 54, 120]), //
+  outline: {
+    color: new Color([255, 255, 255]), // White outline (RGB)
+    width: 1 // Outline width
+  },
+  style: "square", // Set the symbol style 
+  size: 7 // Set the size of the  symbol
+});    
+        
+// Update the renderer for the npshist layer
+laHistoricLayer.renderer = {
+  type: "simple", // Use a simple renderer
+  symbol: histMarkerSymbol // Assign the new marker symbol
+};    
+        
+// Add parks with a class breaks renderer and unique symbols
+      function createFillSymbol(value, color) {
+        return {
+          "value": value,
+          "symbol": {
+            "color": color,
+            "type": "simple-fill",
+            "style": "solid",
+            "outline": {
+              "style": "none"
+            }
+          },
+          "label": value
+        };
+      }
+
+      const datagovAmerIndianRenderer = {
+        type: "unique-value",
+        field: "NAME1_",
+        uniqueValueInfos: [
+          createFillSymbol("Bad River Indian Reservation", "#9E559C"),
+          createFillSymbol("Red Cliff Indian Reservation", "#ED5151")
+        ]
+      };
+    
+        
+        
+   // Create the layer and set the renderer
+      const datagovAmerIndian = new FeatureLayer({
+    url: "https://services.arcgis.com/HRPe58bUyBqyyiCt/arcgis/rest/services/AI_res2/FeatureServer",
+        outFields: ["NAME1_", "NAME2_"],
+        popupTemplate: popupAmerIndian,
+        renderer: datagovAmerIndianRenderer,
+        opacity: 0.2,
+        title: "American Indian Territory"
+      });
+
+      // Add the layer
+      map.add(datagovAmerIndian,0);
+        //end add layers ---------------------------
+        
+
+        
+        
+// track
+    const track = new Track({
+          view: view,
+          graphic: new Graphic({
+            symbol: {
+              type: "simple-marker",
+              size: "12px",
+              color: "#5F9EA0",
+              outline: {
+                color: "#efefef",
+                width: "1.5px"
+              }
+            }
+          }),
+          useHeadingEnabled: false
+        });
+        view.ui.add(track, "top-left");
+
+    // LayerList
+layerList = new LayerList({
+  container: document.createElement("div"),
+  view: view
+});
+layerListExpand = new Expand({
+  expandIcon: "layers",  // see https://developers.arcgis.com/calcite-design-system/icons/
+  // expandTooltip: "Expand LayerList", // optional, defaults to "Expand" for English locale
+  view: view,
+  content: layerList
+});
+view.ui.add(layerListExpand, "top-left");
+        
+ // Search widget
+
+// var search = new Search({
+//    container: document.createElement("div"),
+//    view: view,
+//  sources: [
+//      {
+//        featureLayer: npsCamp,
+//        searchFields: ["NAME1_"], // Replace with the actual field name you want to search in
+//        displayField: "NAME1_", // Replace with the actual display field name
+//        exactMatch: false,
+//        outFields: ["*"],
+//        name: "NPS Campgrounds",
+//        placeholder: "Search Campgrounds",
+//        zoomScale: 12000  // Set the desired zoom scale when a result is selected
+//      }
+//    ],
+//    resultGraphicEnabled: false  // Disable the default result graphic to prevent zooming to it
+//  });
+//
+//  search.on("select-result", function(event) {
+//    // Zoom to the selected result at a custom zoom level (e.g., 12)
+//    view.goTo({
+//      target: event.result.extent,
+//      zoom: 13
+//    });
+//  });
+//
+//        
+//searchExpand = new Expand({
+//  expandIcon: "search",  // see https://developers.arcgis.com/calcite-design-system/icons/
+//  view: view,
+//  content: search
+//});
+//view.ui.add(searchExpand, "top-right");   
+
+// search widget from sample  
+   const searchWidget = new Search({
+          view: view,
+          allPlaceholder: "Campground",
+          includeDefaultSources: false,
+          sources: [
+            {
+              layer: npsCamp,
+              searchFields: ["NAME1_"],
+              displayField: "NAME1_",
+              exactMatch: false,
+              outFields: ["NAME1_"],
+              name: "Campgrounds",
+              placeholder: "example: Sand Island Camp - East Bay/Caves"
+            },
+            {
+              name: "ArcGIS World Geocoding Service",
+              placeholder: "example: La Pointe, WI",
+              apiKey: "AAPKbcf525b00e1e4eac82fca480b9d8374729QcC3lrwvJGTpiz_f89fDf-Gl2d-h0gOF7SvNiXQeIXUw62g_0ZuQ4fddlLkntw",
+              singleLineFieldName: "SingleLine",
+              url: "https://geocode-api.arcgis.com/arcgis/rest/services/World/GeocodeServer"
+            }
+          ]
+        });
+
+//         Add the search widget to the top left corner of the view
+        searchExpand = new Expand({
+  expandIcon: "search",  // see https://developers.arcgis.com/calcite-design-system/icons/
+  view: view,
+  content: searchWidget
+});
+        
+view.ui.add(searchExpand, "top-right");   
+        
+        
+        
+        
+    
+    });     
+
+
+
+
+</script>
+    <div class="header">&#160;&#160;&#160;Apostle Islands Wildlife Spotter</div>
+
+</head>
+
+ <div id="selectedCount" class="esri-widget"></div>
+
+  <div id="viewDiv">
+    <div id="searchContainer">
+      <!-- ... Your existing HTML ... -->
+    </div>
+    <button id="resetButton" class="esri-widget">Reset Map</button>
+
+    <div id="optionsDiv2">
+      <select id="wildlifeDropdown" class="esri-widget esri-select" style="width: 200px; font-family: 'Avenir Next'; font-size: 1em">
+        <option value="Choose an animal...">Choose an animal...</option>
+        <option value="Wildlife = 'American Beaver'">American Beaver</option>
+        <option value="Wildlife = 'American Black Bear'">American Black Bear</option>
+        <option value="Wildlife = 'American Marten'">American Marten</option>
+        <option value="Wildlife = 'Bald Eagle'">Bald Eagle</option>
+        <option value="Wildlife = 'Black-capped Chickadee'">Black-capped Chickadee</option>
+        <option value="Wildlife = 'Blanding's Turtle'">Blanding's Turtle</option>
+        <option value="Wildlife = 'Common Loon'">Common Loon</option>
+        <option value="Wildlife = 'Eastern Bluebird'">Eastern Bluebird</option>
+        <option value="Wildlife = 'Eastern Box Turtle'">Eastern Box Turtle</option>
+        <option value="Wildlife = 'Eastern Massasauga Rattlesnake'">Eastern Massasauga Rattlesnake</option>
+        <option value="Wildlife = 'Eastern Red-backed Salamander'">Eastern Red-backed Salamander</option>
+        <option value="Wildlife = 'Eastern Timber Wolf'">Eastern Timber Wolf</option>
+        <option value="Wildlife = 'Gray Wolf'">Gray Wolf</option>
+        <option value="Wildlife = 'Great Horned Owl'">Great Horned Owl</option>
+        <option value="Wildlife = 'Herring Gull'">Herring Gull</option>
+        <option value="Wildlife = 'Lake Sturgeon'">Lake Sturgeon</option>
+        <option value="Wildlife = 'Northern Goshawk'">Northern Goshawk</option>
+        <option value="Wildlife = 'Osprey'">Osprey</option>
+        <option value="Wildlife = 'Peregrine Falcon'">Peregrine Falcon</option>
+        <option value="Wildlife = 'Riverine Clubtail Dragonfly'">Riverine Clubtail Dragonfly</option>
+        <option value="Wildlife = 'Sandhill Crane'">Sandhill Crane</option>
+        <option value="Wildlife = 'White-tailed Deer'">White-tailed Deer</option>
+      </select>
+    </div>
+
+  </div>
+
+  <div id="basemapStyles" class="esri-widget">
+    <calcite-label>Choose a Basemap Style...</calcite-label>
+    <calcite-combobox id="styleCombobox" selection-mode="single" clear-disabled>
+
+
+      <calcite-combobox-item value="arcgis/outdoor" text-label="Outdoor"></calcite-combobox-item>
+      <calcite-combobox-item value="arcgis/imagery" text-label="Imagery"></calcite-combobox-item>
+      <calcite-combobox-item value="arcgis/topographic" text-label="Topographic"></calcite-combobox-item>
+      <calcite-combobox-item value="arcgis/terrain" text-label="Terrain"></calcite-combobox-item>
+<!--
+      <calcite-combobox-item value="arcgis/oceans" text-label="arcgis/oceans"></calcite-combobox-item>
+      <calcite-combobox-item value="arcgis/light-gray" text-label="arcgis/light-gray"></calcite-combobox-item>
+      <calcite-combobox-item value="arcgis/dark-gray" text-label="arcgis/dark-gray"></calcite-combobox-item>
+-->
+      <calcite-combobox-item value="arcgis/human-geography" text-label="Human Geography (light)"></calcite-combobox-item>
+      <calcite-combobox-item value="arcgis/human-geography-dark" text-label="Human Geography (dark)"></calcite-combobox-item>
+      <calcite-combobox-item value="arcgis/charted-territory" text-label="Charted Territory" selected ></calcite-combobox-item>
+
+    </calcite-combobox>
+  </div>
+    
+    
+</body>
+
+</html>
